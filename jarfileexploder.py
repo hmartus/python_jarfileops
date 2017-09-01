@@ -1,8 +1,14 @@
 import zipfile
+import json
 
-
-def read_zipfile_extname(jarfile, extname='.class'):
-    with zipfile.ZipFile(jarfile) as lines:
+def read_zipfile(zip_file, extname='.java'):
+    """
+    Generates files or folders inside a zipfile
+    :param zip_file: zipfile to be search
+    :param extname: file with extension filename to be searched
+    :return: generates files or folders inside the zip file
+    """
+    with zipfile.ZipFile(zip_file) as lines:
         for line in lines.infolist():
             if line.filename.endswith(extname):
                 yield line.filename
@@ -13,16 +19,20 @@ def search_zipfile(zip_file, extname, search):
     :param zip_file: zipfile to be searched
     :param extname: file with extension filename to be searched
     :param search:  keyword to be looking for in a file
-    :return: a dictionary element with filename and a list of searched item was found
+    :return: a tuple java file as key and a dictionary of where search keyword found and line number as key
     """
     with zipfile.ZipFile(zip_file) as unzipped:
         for line in unzipped.infolist():
             if line.filename.endswith(extname):
                 with unzipped.open(line.filename, 'r') as myfile:
                     flines = myfile.readlines()
-                    lines = {i+1 : j.strip() for i,j in enumerate(flines) if search in j}
+                    lines = {i+1 : j.strip().decode("utf-8") for i, j in enumerate(flines) if search in j}
                     if lines:
-                        yield {line.filename : lines}
+                        yield {line.filename: lines}
+
+def to_json(zip_file, extname, search):
+    """ generates a json equivalent of the result """
+    return json.dumps([i for i in search_zipfile(zip_file, extname, search)])
 
 def write_to_file(jarfile, file='results.txt', mode='a', extname='.java', search=b'version'):
     with open(file, mode) as f:
@@ -34,7 +44,7 @@ def write_to_file(jarfile, file='results.txt', mode='a', extname='.java', search
                         f.write(a)
                         f.write('\t' + b + '\n')
 
-def decompile(decompiler='cfr_0_122.jar', jarfile='oro-2.0.8.jar', dump='./tmp'):
+def decompile(decompiler='cfr_0_122.jar', zip_file='', dump='./tmp'):
     """
     Decompile all jar files
     :param decompiler: decompiler to use default to cfr_0_122
@@ -43,31 +53,12 @@ def decompile(decompiler='cfr_0_122.jar', jarfile='oro-2.0.8.jar', dump='./tmp')
     :return: none
     """
     from subprocess import call
-    call(['java', '-jar', decompiler, jarfile, '--caseinsensitivefs', 'true', '--outputdir', dump])
+    call(['java', '-jar', decompiler, zip_file, '--caseinsensitivefs', 'true', '--outputdir', dump])
 
-def profile_me():
-    write_to_file(jar_file2)
-
-def display_dict(flist):
-    for i, k in flist.items():
-        print(i, str(k))
-
-def wrapper(func, *args, **kwargs):
-    def wrapped():
-        return func(*args, **kwargs)
-
-    return wrapped()
 
 if __name__ == '__main__':
-    jar_file2 = 'spring-webmvc-4.3.10.RELEASE-sources.jar'
-    jar_samp = 'sample.jar'
-    """
-    import timeit
-    t = timeit.Timer(setup='from __main__ import profile_me', stmt='profile_me()')
-    print(t.timeit(1))
-    
-    write_to_file(jar_file2)
-    decompile()
-    """
-    for i in search_zipfile(jar_file2, '.java', b'version'):
-        print(i)
+    JARFILE = 'sample.jar'
+    EXTNAME = '.java'
+    #sample
+    print(to_json(JARFILE, EXTNAME, b'version'))
+
